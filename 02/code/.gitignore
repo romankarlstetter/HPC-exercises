@@ -1,0 +1,6 @@
+# ignore all QtCreator-specific files
+
+*.config
+*.creator
+*.files
+*.includes
