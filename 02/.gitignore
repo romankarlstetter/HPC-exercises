@@ -1,0 +1,7 @@
+# ignore all QtCreator-specific files
+
+*.aux
+*.log
+*.tex~
+*.tex.backup
+*.pdf

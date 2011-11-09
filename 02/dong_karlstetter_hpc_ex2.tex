@@ -1,0 +1,27 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[utf8x]{inputenc}
+
+%opening
+\title{Assignement 2}
+\author{Shuying Dong, Roman Karlstetter}
+
+\begin{document}
+
+
+
+\section{Shared-Memory $\pi$-Berechnung}
+The sum has to be multiplied by $4\cdot h$, because
+\begin{itemize}
+ \item every element has to be multiplied by $h$ (according to Mittelpunktsregel) and
+ \item $arctan(1) = \frac{\pi}{4}$ ($arctan$ is $tan^{-1}$ and $tan(\frac{\pi}{4}) = tan(45°) = 1$), so it holds that: $\pi = 4 \cdot arctan(1)$. 
+\end{itemize}
+
+Interestingly, we don't get the same result for all three methods. The reason for this are rounding errors. 
+
+Forthermore, for the openmp-reduction and the sequential version, we always get the same result, for the critical section version, we always get different results. This shows, that the order in which the different parts of the integral are summed up is not defined and so, in every run of the programm, we get different rounding errors.
+
+\section{Matrix-Matrix-Multiplikation II}
+
+\section{Quicksort}
+
+\end{document}
