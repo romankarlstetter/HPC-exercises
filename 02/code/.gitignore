@@ -6,3 +6,4 @@
 *.files
 *.includes
 pi
+dgemm
