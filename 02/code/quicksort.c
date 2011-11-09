@@ -8,6 +8,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+int threshold = 128;
+
 void print_list(double *data, int length){
 	int i;
 	for(i = 0; i < length; i++)
@@ -46,8 +48,20 @@ void quicksort(double *data, int length){
 	//print_list(data, length);
 
 	/* recursion */
-	quicksort(data, right);
-	quicksort(&(data[left]), length - left);
+
+        // we don't have to specify any data scope clauses because data is by default shared and everything else is private to the respective instances of the functions
+        #pragma omp task final(right<threshold), shared(data)
+        {
+            quicksort(data, right);
+        }
+
+        #pragma omp task final(length - left<threshold), shared(data)
+        {
+            quicksort(&(data[left]), length - left);
+        }
+
+        //lets wait for both of our tasks, otherwise we get a segfault
+        #pragma omp taskwait
 }
 
 int check(double *data, int length){
@@ -67,9 +81,12 @@ int main(int argc, char **argv)
 	int i, j, k;
 
 	length = 10000000;
-	if(argc > 1){
-		length = atoi(argv[1]);
-	}
+        if(argc > 1){
+                length = atoi(argv[1]);
+        }
+        if(argc > 2){
+            threshold = atoi(argv[2]);
+        }
 
 	data = (double*)malloc(length * sizeof(double));
 	if(0 == data){
@@ -87,13 +104,20 @@ int main(int argc, char **argv)
 	
 	//print_list(data, length);
 
-	quicksort(data, length);	
+        #pragma omp parallel
+        {
+            #pragma omp single
+            {
+                quicksort(data, length);
+            }
+        }
+        printf("Size of dataset; %d; elapsed time[s]; %e; threshold; %d \n", length, get_ToD_diff_time(time), threshold);
 
-	/*print_list(data, length);
+
+        //print_list(data, length);
 	if(check(data, length) != 0)
-		printf("ERROR\n");*/
+                printf("ERROR\n");
 
-	printf("Size of dataset: %d, elapsed time[s] %e \n", length, get_ToD_diff_time(time));
 
 	return(0);
 }
