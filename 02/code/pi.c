@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include "timer.h"
 
-#define N 50000000
+#define N 5000000
 #define h 1.0/N
 
 double phi(double x)
