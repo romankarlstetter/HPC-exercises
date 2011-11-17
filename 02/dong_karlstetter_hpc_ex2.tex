@@ -29,19 +29,30 @@ Forthermore, for the openmp-reduction and the sequential version, we always get 
 \end{itemize}
 
 When using critical sections, the runtime goes up:
+\begin{center}
 \includegraphics[]{pi_critical.png}
-
+\end{center}
 If reduction is used, if goes down:
+\begin{center}
 \includegraphics[]{pi_reduction.png}
+\end{center}
 
-
+\begin{center}
 \includegraphics[]{pi_speedup.png}
+\end{center}
+\begin{center}
 \includegraphics[]{pi_efficiency.png}
-
+\end{center}
 We use 8 cores for our measurements.
 
 \section{Matrix-Matrix-Multiplikation II}
 
 \section{Quicksort}
+\begin{center}
+\includegraphics{strong_scaling_10000.png}\\
+\includegraphics{strong_scaling_100000.png}\\
+\includegraphics{strong_scaling_1000000.png}\\
+\includegraphics{strong_scaling_10000000.png}\\
+\includegraphics{strong_scaling_100000000.png}\\\end{center}
 
 \end{document}
