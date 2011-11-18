@@ -48,6 +48,8 @@ We use 8 cores for our measurements.
 \section{Matrix-Matrix-Multiplikation II}
 
 \section{Quicksort}
+The following graphs show how our implementation scales (strong scaling) with different problem sizes. We used 8 cores for this measurements. So for only one core we don't have any parallelization overhead, so this case is always a little bit faster than with parallelization enabled. But then, we get good scaling behaviour until we have more threads than cores.
+
 \begin{center}
 \includegraphics{strong_scaling_10000.png}\\
 \includegraphics{strong_scaling_100000.png}\\
