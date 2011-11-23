@@ -34,9 +34,7 @@ Choose some fixed s. Then we can say:
 
 The meaning of this equation is that the speedup you can achieve is the inverse of the serial fraction of your programm, so for example, if 20 \% of your programm are sequential (i.e. can not be serialized), then the theoritical maximum speedup you can get is 5 (with an infinite amount of processes).
 
-
-
-An alternative strategy for rating parallel programms could be to only look on how efficient the \textit{parallelizable} part of the programm has been parallelized.
+Amdahl's law always looks at a fixed problem size and therefore, also the sequential part of the programm requires always the same share of computations. When we allow the problem size to change, we can possibly increase the amount of data which can be procesed in parallel, and therefore the fraction of the serial code can me reduced, as sequential parts of the programm often are things which have to be performed only once (stuff like initialization etc.). 
 
 \end{enumerate}
 
