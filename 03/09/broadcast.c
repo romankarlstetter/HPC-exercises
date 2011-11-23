@@ -4,7 +4,7 @@
 #include <time.h>
 #include <math.h>
 
-#define N 1
+#define N 6123
 
 #ifndef max
 	#define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
