@@ -1,0 +1,45 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[utf8x]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+
+%opening
+\title{Assignement 2}
+\author{Shuying Dong, Roman Karlstetter}
+
+\begin{document}
+
+
+
+\section{Das Gesetz von Amdahl}
+\renewcommand{\labelenumi}{\alph{enumi})}
+\begin{enumerate}
+ \item 
+\begin{align*}
+Eff &= \frac{Sp}{p} \geq 70 \% \\
+Eff &\leq  \frac{Sp}{p} = \frac{\frac{1}{s+{\frac{1-s}{p}}}}{p} = \frac{1}{(s+{\frac{1-s}{p}}) \cdot p}  = \frac{1}{s\cdot p+1-s}\\
+\frac{1}{Eff} &\geq  s\cdot p+1-s\\
+\frac{1}{Eff} -1 + s &\geq  s\cdot p\\
+\frac{\frac{1}{Eff} -1 + s}{s} &\geq  p\\
+\frac{\frac{1}{0.7} -1 + 0.1}{0.1} = 5.286 &\geq  p\\
+\end{align*}
+
+You can therefore use at most 5 processes to have a parallel efficiency of 70\%, when the serial part of your code is 10\%.
+\item 
+Choose some fixed s. Then we can say: 
+\begin{align*}
+ \lim\limits_{p \rightarrow \infty}{Sp} &= \lim\limits_{p \rightarrow \infty}{\frac{1}{s+{\frac{1-s}{p}}}}\\
+&= \lim\limits_{p \rightarrow \infty}{\frac{1}{s}} = \frac{1}{s}\\
+\end{align*}
+
+The meaning of this equation is that the speedup you can achieve is the inverse of the serial fraction of your programm, so for example, if 20 \% of your programm are sequential (i.e. can not be serialized), then the theoritical maximum speedup you can get is 5 (with an infinite amount of processes).
+
+
+
+\end{enumerate}
+
+\section{Broadcast}
+
+\section{Paralleles CG}
+
+\end{document}
