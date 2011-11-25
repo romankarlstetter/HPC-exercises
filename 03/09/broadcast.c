@@ -4,7 +4,7 @@
 #include <time.h>
 #include <math.h>
 
-#define N 6123
+#define N 13
 
 #ifndef max
 	#define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
@@ -34,8 +34,26 @@ void trivial(){
 	}
 }
 
+//handle processes from start to end (both including)
+void tree_rec(int start, int end){
+	MPI_Status stat;
+	int tag = 234234;
+	int indexMiddle = (start+end +1)/2;
+	if (start == end) // end of recursion
+		return;
+	if(rank == start){ // only start has to send
+		MPI_Send(doubleArray, N, MPI_DOUBLE, indexMiddle, tag, MPI_COMM_WORLD);
+		printf("send from %d to %d\n", rank, indexMiddle);
+	} if(rank == indexMiddle) { // receive
+		MPI_Recv(doubleArray, N, MPI_DOUBLE, start, tag, MPI_COMM_WORLD, &stat);
+		printf("recv in %d from %d\n", rank, start);
+	}
+	tree_rec(start, indexMiddle -1);
+	tree_rec(indexMiddle, end);
+}
+
 void tree(){
-	
+	tree_rec(0, size-1);
 }
 
 void bonus(){
@@ -149,12 +167,13 @@ main (int argc, char *argv[]){
 	init_array();
 	
 	tree();
-	
-	bonus();
 	MPI_Barrier(MPI_COMM_WORLD);
 
 	
 	print_array();
+	
+	init_array();
+	bonus();
 
 	MPI_Finalize();
 }

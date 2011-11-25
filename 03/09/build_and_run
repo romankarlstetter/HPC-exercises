@@ -2,4 +2,4 @@
 
 mpicc -std=c99 broadcast.c -o broadcast
 
-salloc --ntasks=32 --partition=mpp1_inter mpirun -np 8 ./broadcast
+salloc --ntasks=32 --partition=mpp1_inter mpirun -np 13 ./broadcast
