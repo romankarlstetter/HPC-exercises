@@ -97,8 +97,11 @@ void store_grid(double* grid, std::string filename)
 	//when recv returns, it's out turn
 	
 	std::fstream filestr;
-	filestr.open (filename.c_str(), std::fstream::out);
-	
+	if(rank == 0){
+		filestr.open (filename.c_str(), std::fstream::out);
+	} else {
+		filestr.open (filename.c_str(), std::fstream::app | std::fstream::out);
+	}
 	// calculate mesh width 
 	double mesh_width = 1.0/((double)(grid_points_1d-1));
 
@@ -130,7 +133,7 @@ void store_grid(double* grid, std::string filename)
 	}
 	if(nb_bottom == -1) {
 		for(int i = 1; i < gridpoints_subgrid_x-1;i++){
-			filestr << "1 " << mesh_width*(i+xOffset) << " " << grid[((gridpoints_subgrid_y-1)*gridpoints_subgrid_x)+i] << std::endl;
+			filestr << "1 " << mesh_width*(i+xOffset) << " " << grid[((gridpoints_subgrid_y-1)*gridpoints_subgrid_x)+i] <<  std::endl;
 		}
 	}
 	//store corner points
@@ -140,7 +143,7 @@ void store_grid(double* grid, std::string filename)
 	if(nb_top == -1 && nb_right == -1){
 		filestr << "0 1 " << grid[gridpoints_subgrid_x-1] << std::endl;
 	}
-	if(nb_right == -1 && nb_bottom -1){
+	if(nb_right == -1 && nb_bottom == -1){
 		filestr << "1 1 " << grid[gridpoints_subgrid_x*gridpoints_subgrid_y-1] << std::endl;
 	}
 	if(nb_bottom == -1 && nb_left == -1){
@@ -278,7 +281,7 @@ double g_dot_product(double* grid1, double* grid2)
 	double result;
 	MPI_Allreduce(&tmp, &result, 1, MPI_DOUBLE, MPI_SUM, cartesian_grid);
 	
-	return tmp;
+	return result;
 }
 
 /**
@@ -338,30 +341,30 @@ void g_scale(double* grid, double scalar)
  */
 void g_scale_add(double* dest, double* src, double scalar)
 {
-	int left, right, top, bottom;
-	if(nb_left == -1)
-		left = 1;
-	else 
-		left = 0;
+// 	int left, right, top, bottom;
+// 	if(nb_left == -1)
+// 		left = 1;
+// 	else 
+// 		left = 0;
+// 	
+// 	if(nb_right == -1)
+// 		right = gridpoints_subgrid_x - 1;
+// 	else 
+// 		right = gridpoints_subgrid_x;
+// 	
+// 	if(nb_top == -1)
+// 		top = 1;
+// 	else 
+// 		top = 0;
+// 	
+// 	if(nb_bottom == -1)
+// 		bottom = gridpoints_subgrid_y - 1;
+// 	else 
+// 		bottom = gridpoints_subgrid_y;
 	
-	if(nb_right == -1)
-		right = gridpoints_subgrid_x - 1;
-	else 
-		right = gridpoints_subgrid_x;
-	
-	if(nb_top == -1)
-		top = 1;
-	else 
-		top = 0;
-	
-	if(nb_bottom == -1)
-		bottom = gridpoints_subgrid_y - 1;
-	else 
-		bottom = gridpoints_subgrid_y;
-	
-	for (int i = top; i < bottom; i++)
+	for (int i = 1; i < gridpoints_subgrid_y-1; i++)
 	{
-		for (int j = left; j < right; j++)
+		for (int j = 1; j < gridpoints_subgrid_x-1; j++)
 		{
 			dest[(i*gridpoints_subgrid_x)+j] += (scalar*src[(i*gridpoints_subgrid_x)+j]);
 		}
@@ -380,21 +383,6 @@ void g_scale_add(double* dest, double* src, double scalar)
 void g_product_operator(double* grid, double* result)
 {
 	double mesh_width = 1.0/((double)(grid_points_1d-1));
-	MPI_Waitall(8, allRequests, MPI_STATUSES_IGNORE);
-	
-	for (int i = 1; i < gridpoints_subgrid_x-1; i++)
-	{
-		for (int j = 1; j < gridpoints_subgrid_y-1; j++)
-		{
-			result[(i*gridpoints_subgrid_x)+j] =  (
-							(4.0*grid[(i*gridpoints_subgrid_x)+j]) 
-							- grid[((i+1)*gridpoints_subgrid_x)+j]
-							- grid[((i-1)*gridpoints_subgrid_x)+j]
-							- grid[(i*gridpoints_subgrid_x)+j+1]
-							- grid[(i*gridpoints_subgrid_x)+j-1]
-							) * (mesh_width*mesh_width);
-		}
-	}
 	if(nb_left != -1){
 		MPI_Isend(&grid[gridpoints_subgrid_x + 1], 1, col_type, nb_left, 0, cartesian_grid, &sendLeft);
 		MPI_Irecv(&grid[gridpoints_subgrid_x]    , 1, col_type, nb_left, 0, cartesian_grid, &recvLeft);
@@ -410,7 +398,23 @@ void g_product_operator(double* grid, double* result)
 	if(nb_bottom != -1){
 		MPI_Isend(&grid[(gridpoints_subgrid_y-2) * gridpoints_subgrid_x + 1], 1, row_type, nb_bottom, 0, cartesian_grid, &sendBottom);
 		MPI_Irecv(&grid[(gridpoints_subgrid_y-1) * gridpoints_subgrid_x + 1], 1, row_type, nb_bottom, 0, cartesian_grid, &recvBottom);
+	}	
+	MPI_Waitall(8, allRequests, MPI_STATUSES_IGNORE);
+	
+	for (int i = 1; i < gridpoints_subgrid_x-1; i++)
+	{
+		for (int j = 1; j < gridpoints_subgrid_y-1; j++)
+		{
+			result[(i*gridpoints_subgrid_x)+j] =  (
+							(4.0*grid[(i*gridpoints_subgrid_x)+j]) 
+							- grid[((i+1)*gridpoints_subgrid_x)+j]
+							- grid[((i-1)*gridpoints_subgrid_x)+j]
+							- grid[(i*gridpoints_subgrid_x)+j+1]
+							- grid[(i*gridpoints_subgrid_x)+j-1]
+							) * (mesh_width*mesh_width);
+		}
 	}
+
 }
 
 /**
@@ -428,7 +432,7 @@ void g_product_operator(double* grid, double* result)
 void solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps)
 {
 	if(rank == 0){
-		std::cout << "Starting Conjugated Gradients" << std::endl;
+		std::cout << "Starting Conjugated Gradients: (max iterations: " <<cg_max_iterations << ", cg_eps: " << cg_eps << ")" << std::endl;
 	}
 	
 	double eps_squared = cg_eps*cg_eps;
@@ -444,6 +448,11 @@ void solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps
 	g_copy(r, grid);
 	g_copy(d, grid);
 	g_copy(b_save, b);
+// 	store_grid(q, "helper_q_parallel.gnuplot");
+// 	store_grid(r, "helper_r_parallel.gnuplot");
+// 	store_grid(d, "helper_d_parallel.gnuplot");
+// 	store_grid(b_save, "helper_b_save_parallel.gnuplot");
+
 	
 	double delta_0 = 0.0;
 	double delta_old = 0.0;
@@ -527,6 +536,7 @@ void solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps
 void initNeighbours(){
 	int *dims = my_coords;
 	
+	std::cout << "rank " << rank << "("<< dims[0]<< ", "<< dims[1]<<")";
 	// left neighbour
 	if(dims[0] == 0){
 		nb_left = -1;
@@ -555,9 +565,10 @@ void initNeighbours(){
 	if(dims[1] == topology_size_y - 1){
 		nb_bottom = -1;
 	} else {
-		int nb_bottom_dims[] = {dims[0], dims[1]-1};
+		int nb_bottom_dims[] = {dims[0], dims[1]+1};
 		MPI_Cart_rank(cartesian_grid, nb_bottom_dims, &nb_bottom);
 	}
+	std::cout << "left: " << nb_left << "; right: " << nb_right  << "; top: " << nb_top << "; bottom: " << nb_bottom << std::endl;
 }
 
 bool checkAndReadArguments(int argc, char* argv[]){
@@ -679,17 +690,25 @@ int main(int argc, char* argv[])
 	double* grid = (double*)_mm_malloc(gridpoints_subgrid_x*gridpoints_subgrid_y*sizeof(double), 64);
 	double* b = (double*)_mm_malloc(gridpoints_subgrid_x*gridpoints_subgrid_y*sizeof(double), 64);
 	init_grid(grid);
-	store_grid(grid, "initial_condition.gnuplot");
+	store_grid(grid, "initial_condition_parallel.gnuplot");
 	init_b(b);
 	store_grid(b, "b.gnuplot");
 	
 	// solve Poisson equation using CG method
-	timer_start();
+	MPI_Barrier(cartesian_grid);
+	if(rank == 0){
+		timer_start();
+	}
 	solve(grid, b, cg_max_iterations, cg_eps);
-	double time = timer_stop();
-	store_grid(grid, "solution.gnuplot");
-	
-	std::cout << std::endl << "Needed time: " << time << " s" << std::endl << std::endl;
+	MPI_Barrier(cartesian_grid);
+	double time;
+	if(rank == 0){
+		time = timer_stop();
+	}
+	store_grid(grid, "solution_parallel.gnuplot");
+	if(rank == 0){
+		std::cout << std::endl << "Needed time: " << time << " s" << std::endl << std::endl;
+	}
 	
 	_mm_free(grid);
 	_mm_free(b);
