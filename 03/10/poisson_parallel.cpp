@@ -171,7 +171,7 @@ void store_grid(double* grid, std::string filename)
  */
 double eval_init_func(double x, double y)
 {
-	return (x*x)*(y*y);
+	return ((x-0.3)*(x-0.3))*(y*y);
 }
 
 /**
@@ -271,9 +271,9 @@ double g_dot_product(double* grid1, double* grid2)
 {
 	double tmp = 0.0;
 
-	for (int i = 1; i < gridpoints_subgrid_x-1; i++)
+	for (int i = 1; i < gridpoints_subgrid_y-1; i++)
 	{
-		for (int j = 1; j < gridpoints_subgrid_y-1; j++)
+		for (int j = 1; j < gridpoints_subgrid_x-1; j++)
 		{
 			tmp += (grid1[(i*gridpoints_subgrid_x)+j] * grid2[(i*gridpoints_subgrid_x)+j]);
 		}
@@ -289,8 +289,6 @@ double g_dot_product(double* grid1, double* grid2)
  * to Dirichlet boundary conditions)
  * 
  * NO MPI COMMUNICATION
- * 
- * we scale also our borderpoints, as they are scaled by the other processes as well, so we don't have to communicate these changes
  *
  * @param grid grid to be scaled
  * @param scalar scalar which is used to scale to grid
@@ -401,9 +399,9 @@ void g_product_operator(double* grid, double* result)
 	}	
 	MPI_Waitall(8, allRequests, MPI_STATUSES_IGNORE);
 	
-	for (int i = 1; i < gridpoints_subgrid_x-1; i++)
+	for (int i = 1; i < gridpoints_subgrid_y-1; i++)
 	{
-		for (int j = 1; j < gridpoints_subgrid_y-1; j++)
+		for (int j = 1; j < gridpoints_subgrid_x-1; j++)
 		{
 			result[(i*gridpoints_subgrid_x)+j] =  (
 							(4.0*grid[(i*gridpoints_subgrid_x)+j]) 
@@ -448,10 +446,6 @@ void solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps
 	g_copy(r, grid);
 	g_copy(d, grid);
 	g_copy(b_save, b);
-// 	store_grid(q, "helper_q_parallel.gnuplot");
-// 	store_grid(r, "helper_r_parallel.gnuplot");
-// 	store_grid(d, "helper_d_parallel.gnuplot");
-// 	store_grid(b_save, "helper_b_save_parallel.gnuplot");
 
 	
 	double delta_0 = 0.0;
@@ -461,10 +455,12 @@ void solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps
 	double a = 0.0;
 	double residuum = 0.0;
 	
+	
 	g_product_operator(grid, d);
 	g_scale_add(b, d, -1.0);
 	g_copy(r, b);
 	g_copy(d, r);
+	
 
 	// calculate starting norm
 	delta_new = g_dot_product(r, r);
@@ -475,6 +471,8 @@ void solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps
 		std::cout << "Starting norm of residuum: " << (delta_0/eps_squared) << std::endl;
 		std::cout << "Target norm:               " << (delta_0) << std::endl;
 	}
+	
+	
 	
 	while ((needed_iters < cg_max_iterations) && (delta_new > delta_0))
 	{
@@ -536,7 +534,7 @@ void solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps
 void initNeighbours(){
 	int *dims = my_coords;
 	
-	std::cout << "rank " << rank << "("<< dims[0]<< ", "<< dims[1]<<")";
+	std::cout << "rank " << rank << "(x="<< dims[0]<< ", y="<< dims[1]<<")";
 	// left neighbour
 	if(dims[0] == 0){
 		nb_left = -1;
@@ -637,6 +635,13 @@ void setupMPIStuff(){
 	gridpoints_subgrid_x = (grid_points_1d - 2)/topology_size_x + 2;
 	gridpoints_subgrid_y = (grid_points_1d - 2)/topology_size_y + 2;
 	
+	
+// 	std::cout << "grid_points_1d: " << grid_points_1d << std::endl;
+// 	std::cout << "topology_size_x: " << topology_size_x << std::endl;
+// 	std::cout << "topology_size_y: " << topology_size_y << std::endl;
+// 	std::cout << "gridpoints_subgrid_x: " << gridpoints_subgrid_x << std::endl;
+// 	std::cout << "gridpoints_subgrid_y: " << gridpoints_subgrid_y << std::endl;
+	
 	//create new MPI types
 	MPI_Type_vector(gridpoints_subgrid_x - 2, 1, 1,                    MPI_DOUBLE, &row_type);
 	MPI_Type_vector(gridpoints_subgrid_y - 2, 1, gridpoints_subgrid_x, MPI_DOUBLE, &col_type);
@@ -685,27 +690,29 @@ int main(int argc, char* argv[])
 	}
 	setupMPIStuff();
 	initNeighbours();
+	
 
 	// initialize the grid and rights hand side
 	double* grid = (double*)_mm_malloc(gridpoints_subgrid_x*gridpoints_subgrid_y*sizeof(double), 64);
 	double* b = (double*)_mm_malloc(gridpoints_subgrid_x*gridpoints_subgrid_y*sizeof(double), 64);
 	init_grid(grid);
-	store_grid(grid, "initial_condition_parallel.gnuplot");
+ 	store_grid(grid, "initial_condition_parallel.gnuplot");
 	init_b(b);
-	store_grid(b, "b.gnuplot");
+// 	store_grid(b, "b.gnuplot");
 	
 	// solve Poisson equation using CG method
 	MPI_Barrier(cartesian_grid);
 	if(rank == 0){
 		timer_start();
 	}
+
 	solve(grid, b, cg_max_iterations, cg_eps);
 	MPI_Barrier(cartesian_grid);
 	double time;
 	if(rank == 0){
 		time = timer_stop();
 	}
-	store_grid(grid, "solution_parallel.gnuplot");
+ 	store_grid(grid, "solution_parallel.gnuplot");
 	if(rank == 0){
 		std::cout << std::endl << "Needed time: " << time << " s" << std::endl << std::endl;
 	}
