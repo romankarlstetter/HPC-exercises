@@ -4,8 +4,7 @@
 #include <time.h>
 #include <math.h>
 
-#define N 13
-
+long N;
 #ifndef max
 	#define max( a, b ) ( ((a) > (b)) ? (a) : (b) )
 #endif
@@ -13,7 +12,7 @@
 int mpi_err, size, rank;
 MPI_Status status;
 
-double doubleArray[N];
+double *doubleArray;
 
 void trivial(){
 	int tag_trivial = 1232;
@@ -43,10 +42,10 @@ void tree_rec(int start, int end){
 		return;
 	if(rank == start){ // only start has to send
 		MPI_Send(doubleArray, N, MPI_DOUBLE, indexMiddle, tag, MPI_COMM_WORLD);
-		printf("send from %d to %d\n", rank, indexMiddle);
+		//printf("send from %d to %d\n", rank, indexMiddle);
 	} if(rank == indexMiddle) { // receive
 		MPI_Recv(doubleArray, N, MPI_DOUBLE, start, tag, MPI_COMM_WORLD, &stat);
-		printf("recv in %d from %d\n", rank, start);
+		//printf("recv in %d from %d\n", rank, start);
 	}
 	tree_rec(start, indexMiddle -1);
 	tree_rec(indexMiddle, end);
@@ -110,6 +109,58 @@ void bonus(){
 	free(arrayStart);
 }
 
+void bonus2(){
+	double elems_per_package = ((double)N) / ((double)size-1); //rough estimate
+	int *elemsToSend = malloc(sizeof(int) * (size - 1));
+	double **arrayStart = malloc(sizeof(double*) * (size - 1));
+	for(int i = 0; i<size-1; i++){
+		int ets = (int)(elems_per_package*(i+1)) - (int)(elems_per_package*(i));
+		elemsToSend[i]= max(ets, 1); // send at least 1 elem to every proces
+		arrayStart[i] = &doubleArray[(int)(elems_per_package*(i))];
+	}
+	
+	int init_tag = 23423432;
+	if(rank == 0){
+		MPI_Request *req = malloc(sizeof(MPI_Request)*(size-1));
+		MPI_Status *status = malloc(sizeof(MPI_Status)*(size-1));
+		for(int i = 0; i<size-1; i++){
+			MPI_Isend(arrayStart[i], elemsToSend[i], MPI_DOUBLE, i+1, init_tag, MPI_COMM_WORLD, &req[i]);
+		}
+		MPI_Waitall(size-1, req, status);
+		free(req);
+		free(status);
+	} else {
+		MPI_Status stat;
+		MPI_Recv(arrayStart[rank-1], elemsToSend[rank-1], MPI_DOUBLE, 0, init_tag, MPI_COMM_WORLD, &stat);
+	}
+	
+	MPI_Request *recvreqs = malloc((size-1)*sizeof(MPI_Request));
+	MPI_Request *sendreqs = malloc((size-1)*sizeof(MPI_Request));
+	memset(sendreqs, 0, (size-1)*sizeof(MPI_Request));
+	memset(recvreqs, 0, (size-1)*sizeof(MPI_Request));
+	
+	if(rank != 0 ){ // all communication of process 0 is finished now
+		// post receive  for all parts
+		for(int i= 0; i<size - 1; i++){
+			if(i+1 == rank) continue;
+			MPI_Irecv(arrayStart[i], elemsToSend[i], MPI_DOUBLE, i+1, 0, MPI_COMM_WORLD, &recvreqs[i]);
+		}
+		// send my part to all the other processes
+		for(int i = 0; i<size-1; i++){
+			if(i+1 == rank) continue;
+			MPI_Isend(arrayStart[rank-1], elemsToSend[rank-1], MPI_DOUBLE, i+1, 0, MPI_COMM_WORLD, &sendreqs[i]);
+		}
+		MPI_Waitall(size-1, sendreqs, MPI_STATUSES_IGNORE);
+		MPI_Waitall(size-1, recvreqs, MPI_STATUSES_IGNORE);
+	}
+	
+	free(recvreqs);
+	free(sendreqs);
+	
+	free(elemsToSend);
+	free(arrayStart);
+}
+
 void print_array_helperfun(){
 	printf("Array of process %d:\n", rank);
 	for(int i = 0; i<N; i++){
@@ -147,34 +198,134 @@ void init_array(){
 	MPI_Barrier(MPI_COMM_WORLD);
 }
 
+/// store begin timestep
+double begin;
+
+
+/**
+ * initialize and start timer
+ */
+void timer_start()
+{
+	begin = MPI_Wtime();
+}
+
+/**
+ * stop timer and return measured time
+ *
+ * @return measured time
+ */
+double timer_stop()
+{
+	double end = MPI_Wtime();
+	double ret = end - begin;
+
+	return ret;
+}
+
+void testTrivial(){
+	init_array();
+	
+	
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0) timer_start();
+	trivial();
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0) {
+// 		printf("time for trivial: %f\n", timer_stop());
+		printf("%f ", timer_stop());
+	}
+}
+
+void testTree(){
+	init_array();
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0) timer_start();
+	tree();
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0) {
+// 		printf("time for tree: %f\n", timer_stop());
+		printf("%f ", timer_stop());
+	}
+}
+
+void testBonus(){
+	init_array();
+	
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0) timer_start();
+	bonus();
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0) {
+// 		printf("time for bonus: %f\n", timer_stop());
+		printf("%f ", timer_stop());
+	}
+}
+
+void testBonus2(){
+	init_array();
+	
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0) timer_start();
+	bonus2();
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0) {
+// 		printf("time for bonus: %f\n", timer_stop());
+		printf("%f ", timer_stop());
+	}
+	//print_array();
+}
+
+void testMPI(){
+	init_array();
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0) timer_start();
+	MPI_Bcast(doubleArray, N, MPI_DOUBLE, 0, MPI_COMM_WORLD);
+	MPI_Barrier(MPI_COMM_WORLD);
+	if(rank == 0) {
+		//printf("time for MPI_bcast: %f\n", timer_stop());
+		printf("%f ", timer_stop());
+	}
+}
+
 main (int argc, char *argv[]){
 
-	MPI_Init(&argc, &argv);
+	mpi_err = MPI_Init(&argc, &argv);
 	if(mpi_err != MPI_SUCCESS){
 		printf("Cannot initialize MPI!\n");
 		MPI_Finalize();
 		exit(0);
 	}
-
+	
+	if(argc < 2){
+		if(rank == 0){
+			printf("you didn't specify a N! \n\nusage:\nbroadcast <N>");
+		}
+		N = 24323;
+	} else {
+		N = atol(argv[1]);
+	}
+	
+	
 	MPI_Comm_size(MPI_COMM_WORLD, &size);
 	MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	
-	init_array();
+	if(rank == 0){
+		printf("%ld ", N);
+	}
 	
-	trivial();
-	MPI_Barrier(MPI_COMM_WORLD);
+	doubleArray = malloc(N*sizeof(double));
 	
-	init_array();
+	testTrivial();
+	testTree();
+	testBonus();
+	testBonus2();
+	testMPI();
 	
-	tree();
-	MPI_Barrier(MPI_COMM_WORLD);
-
-	
-	print_array();
-	
-	init_array();
-	bonus();
-
+	if(rank == 0){
+		printf("\n");
+	}
 	MPI_Finalize();
+	free(doubleArray);
 }
 
