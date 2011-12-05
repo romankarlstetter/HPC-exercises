@@ -107,33 +107,48 @@ void store_grid(double* grid, std::string filename)
 
 	int xOffset = (gridpoints_subgrid_x-2)*my_coords[0];
 	int yOffset = (gridpoints_subgrid_y-2)*my_coords[1];
+	
+	// don't output every point, but in total only ca. 100, so that gnuplot does not lag
+	int mod = grid_points_1d / 100;
+	if (mod < 1) mod = 1;
+	
 	// store grid 
 	for (int i = 1; i < gridpoints_subgrid_y-1; i++)
 	{
 		for (int j = 1; j < gridpoints_subgrid_x-1; j++)
 		{
-			filestr << mesh_width*(i+yOffset) << " " << mesh_width*(j+xOffset) << " " << grid[(i*gridpoints_subgrid_x)+j] << std::endl;
+			if((i+yOffset) % mod == 0 && (j+xOffset) % mod == 0){
+				filestr << mesh_width*(i+yOffset) << " " << mesh_width*(j+xOffset) << " " << grid[(i*gridpoints_subgrid_x)+j] << std::endl;
+			}
 		}
 	}
 	// store boundary points
 	if(nb_left == -1) {
 		for(int i = 1; i < gridpoints_subgrid_y-1;i++){
-			filestr << mesh_width*(i+yOffset) << " 0 " << grid[(i*gridpoints_subgrid_x)] << std::endl;
+			if((i+yOffset) % mod == 0){
+				filestr << mesh_width*(i+yOffset) << " 0 " << grid[(i*gridpoints_subgrid_x)] << std::endl;
+			}
 		}
 	}
 	if(nb_right == -1) {
 		for(int i = 1; i < gridpoints_subgrid_y-1;i++){
-			filestr << mesh_width*(i+yOffset) << " 1 " << grid[((i+1)*gridpoints_subgrid_x)-1] << std::endl;
+			if((i+yOffset) % mod == 0){
+				filestr << mesh_width*(i+yOffset) << " 1 " << grid[((i+1)*gridpoints_subgrid_x)-1] << std::endl;
+			}
 		}
 	}
 	if(nb_top == -1) {
 		for(int i = 1; i < gridpoints_subgrid_x-1;i++){
-			filestr << "0 " << mesh_width*(i+xOffset) << " " << grid[i] << std::endl;
+			if((i+xOffset) % mod == 0){
+				filestr << "0 " << mesh_width*(i+xOffset) << " " << grid[i] << std::endl;
+			}
 		}
 	}
 	if(nb_bottom == -1) {
 		for(int i = 1; i < gridpoints_subgrid_x-1;i++){
-			filestr << "1 " << mesh_width*(i+xOffset) << " " << grid[((gridpoints_subgrid_y-1)*gridpoints_subgrid_x)+i] <<  std::endl;
+			if((i+xOffset) % mod == 0){
+				filestr << "1 " << mesh_width*(i+xOffset) << " " << grid[((gridpoints_subgrid_y-1)*gridpoints_subgrid_x)+i] <<  std::endl;
+			}
 		}
 	}
 	//store corner points
@@ -430,7 +445,7 @@ void g_product_operator(double* grid, double* result)
 void solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps)
 {
 	if(rank == 0){
-		std::cout << "Starting Conjugated Gradients: (max iterations: " <<cg_max_iterations << ", cg_eps: " << cg_eps << ")" << std::endl;
+		std::cout << "Starting Conjugated Gradients: (max iterations: " <<cg_max_iterations << ", cg_eps: " << cg_eps << ", gridsize1d: " << grid_points_1d << ")" << std::endl;
 	}
 	
 	double eps_squared = cg_eps*cg_eps;
@@ -510,7 +525,7 @@ void solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps
 		residuum = delta_new;
 		needed_iters++;
 		if(rank==0){
-			std::cout << "(iter: " << needed_iters << ")delta: " << delta_new << std::endl;
+			//std::cout << "(iter: " << needed_iters << ")delta: " << delta_new << std::endl;
 		}
 	}
 
@@ -696,7 +711,7 @@ int main(int argc, char* argv[])
 	double* grid = (double*)_mm_malloc(gridpoints_subgrid_x*gridpoints_subgrid_y*sizeof(double), 64);
 	double* b = (double*)_mm_malloc(gridpoints_subgrid_x*gridpoints_subgrid_y*sizeof(double), 64);
 	init_grid(grid);
- 	store_grid(grid, "initial_condition_parallel.gnuplot");
+//  	store_grid(grid, "initial_condition_parallel.gnuplot");
 	init_b(b);
 // 	store_grid(b, "b.gnuplot");
 	
