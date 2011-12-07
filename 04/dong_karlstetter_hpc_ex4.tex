@@ -1,0 +1,36 @@
+\documentclass[a4paper,10pt]{article}
+\usepackage[utf8x]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+
+%opening
+\title{Assignement 3}
+\author{Shuying Dong, Roman Karlstetter}
+
+\begin{document}
+
+
+
+\section{Intel Cilk/CEAN and OpenCL}
+\begin{itemize}
+ \item There are three keywords: \texttt{\_Cilk\_spawn}, \texttt{\_Cilk\_sync} and \texttt{\_Cilk\_for}. The advantage of Intel Cilk is that you almost do not have to care about how parallelization is done, you just tell the compiler which parts of the programm may be executed in parallel. The runtime then decides, depending on how many cores are available and may be used, we to start a parallel part. However, you still has to deal with race-conditions yourself.
+\item
+\textbf{a[0:3][0:4]:} \\ refers so elements a[0][0], a[0][1], a[0][2], a[0][3], a[1][0], ..., a[2][1],a[3][2],a[2][3] \\
+\textbf{b[0:2:3]:}    \\ start at 0, use 2 elements, use every 3rd element: means 0 and 3\\
+\textbf{b[:]}  \\ complete array, only for static initialized arrays\\
+\item
+First, there is a separation between memory accessible from the host and the one from the device. Therefore, you have to explicitly move memory between host and device. Next, there is the following memory hierarchy:
+\begin{description}
+ \item [private memory: ] specific to a work-item, it is not visible to other work items
+ \item[local memory: ] specificto a work-group, accessible only by work-items belonging to that work-group
+ \item[global memory: ] accessible to all work items executing a context, the host can copy data to and from this memory
+ \item[constant memory: ] read-only region for host-allocated and -initialized memory that are not changed during execution of a kernel
+ \item[host memory: ] only accessible for host
+\end{description}
+\item you compile your opencl programms just as normal programms without opencl. Of course, you have to specify the correct libraries to link against. The kernel code is the compiled by a JIT-Compiler and generates platform-optimized code. There is also the option to use precompiled kernel programms.
+
+\item The execution of opencl programms is split up into two parts: host execution and kernel execution. Thereby, the host controlles the kernel execution. The execution of a opencl kernel depends on the index space which is defined on submitting the kernel to the command queue. For each point in the index space, a separate kernel instance, a so called work-item, is executed. These work items work on a small part of the data. Work-items are grouped into work-groups, which are  a more coarse-grained decomposition of the index space. This execution model corresponds to the memory hierarchy.
+
+\end{itemize}
+
+\end{document}
