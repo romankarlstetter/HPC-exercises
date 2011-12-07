@@ -7,3 +7,4 @@
 *.includes
 pi
 dgemm
+quicksort_*

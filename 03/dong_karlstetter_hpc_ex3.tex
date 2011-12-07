@@ -56,6 +56,8 @@ There are probably more clever implementations for small n (especially up to p).
  \includegraphics[width=0.8 \textwidth]{09/bonus_critical_path.png}
 \caption{bonus critical path}
 \end{figure}
+\item
+I did another implementation of bonus (look for function bonus2 in the code), is similar to the version just described, but after having received one part of the array from process 0, a process send the same package to all the other processes and receives from every other process the other parts.
 \end{itemize}
 
 This is the analysis of the bandwidth:
@@ -65,6 +67,35 @@ This is the analysis of the bandwidth:
  \includegraphics[width=1.1 \textwidth]{09/bandwidth.png}
 \end{figure}
 
+\newpage
 \section{Paralleles CG}
+For the parallelization of the given algorithm, we split up the domain of all inner points into parts of equal size plus the border of the complete domain or the borders of domains directly next to the part. With this approach, we don't have to make any differences in the computations which have to be performed. 
+
+Also note that we changed the parameters of the programm, now you have to specify directly how many grid points you want to have, and not how big h is.
+
+For measuring the runtime depending on the matrix size, we use a constant max. number of iterations of 100.
+This is the result:
+\begin{figure}[h!]
+ \centering
+ \includegraphics[width=1.0 \textwidth]{10/runtime_domain_size.png}
+\end{figure}
+
+
+For measuring the scaling behaviour we first use a constant matrix size of 8194 and then test it with 1, 2, 4, 8, 16 and 32 processors (for the two virtual topologies 1 x np and np x 1):
+\begin{figure}[h!]
+ \centering
+ \includegraphics[width=1.0\textwidth]{10/runtime_scaling.png}
+\end{figure}
+
+for small grid-sizes, there is a significant overhead in communication when 16 or 32 cores are used (this is on ice1-inter partition):
+\begin{figure}[h!]
+ \centering
+ \includegraphics[width=1.0\textwidth]{10/runtime_scaling_small.png}
+\end{figure}
+
+We also did some tests on how the structure of the the grid (e.g. 1x16, 2x8, 4x4) influences performance, but there were no noticeable (only something around 2\% ) differences.
+
+All in all, this shows that our implementation is not really optimized, there could probably be some more overlap between computation and communication, but we had some strange problems while implementing the parallel version with the linux-cluster, so we are very happy to have at least a correct working version and some results to show.
+
 
 \end{document}
