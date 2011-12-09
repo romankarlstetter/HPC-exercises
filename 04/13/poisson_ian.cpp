@@ -20,6 +20,18 @@ struct timeval begin;
 /// store end timestep
 struct timeval end;
 
+// buffer for mapping 1D array to 2D array
+// these are only allocated once and can then be used (and have to be initialized) when needed
+double** grid1_2d;
+double** grid2_2d;
+
+void map_1d_2d(double *_1d, double **_2d){
+#pragma vector always
+	for(int i = 0; i<grid_points_1d; i++){
+		_2d[i] = &(_1d[i*grid_points_1d]);
+	}
+}
+
 /**
  * initialize and start timer
  */
@@ -110,12 +122,8 @@ double eval_init_func(double x, double y)
  */
 void init_grid(double* grid)
 {
-	// set all points to zero
-	for (int i = 0; i < grid_points_1d*grid_points_1d; i++)
-	{
-		grid[i] = 0.0;
-	}
-
+	grid[0:grid_points_1d*grid_points_1d] = 0.0;
+	
 	double mesh_width = 1.0/((double)(grid_points_1d-1));
 	
 	for (int i = 0; i < grid_points_1d; i++)
@@ -137,11 +145,7 @@ void init_grid(double* grid)
  */
 void init_b(double* b)
 {
-	// set all points to zero
-	for (int i = 0; i < grid_points_1d*grid_points_1d; i++)
-	{
-		b[i] = 0.0;
-	}
+	b[0:grid_points_1d*grid_points_1d] = 0.0;
 }
 
 /**
@@ -152,10 +156,7 @@ void init_b(double* b)
  */
 void g_copy(double* dest, double* src)
 {
-	for (int i = 0; i < grid_points_1d*grid_points_1d; i++)
-	{
-		dest[i] = src[i];
-	}
+	dest[0:grid_points_1d*grid_points_1d] = src[0:grid_points_1d*grid_points_1d];
 }
 
 /**
@@ -167,18 +168,13 @@ void g_copy(double* dest, double* src)
  */
 double g_dot_product(double* grid1, double* grid2)
 {
-	double tmp = 0.0;
-
-	for (int i = 1; i < grid_points_1d-1; i++)
-	{
-		for (int j = 1; j < grid_points_1d-1; j++)
-		{
-			tmp += (grid1[(i*grid_points_1d)+j] * grid2[(i*grid_points_1d)+j]);
-		}
-	}
+	map_1d_2d(grid1, grid1_2d);
+	map_1d_2d(grid2, grid2_2d);
 	
-	return tmp;
+	size_t s = grid_points_1d-2;
+	return __sec_reduce_add(grid1_2d[1:s][1:s] * grid2_2d[1:s][1:s]);
 }
+
 
 /**
  * scales a grid by a given scalar (only inner grid points are modified due 
@@ -189,13 +185,9 @@ double g_dot_product(double* grid1, double* grid2)
  */
 void g_scale(double* grid, double scalar)
 {
-	for (int i = 1; i < grid_points_1d-1; i++)
-	{
-		for (int j = 1; j < grid_points_1d-1; j++)
-		{
-			grid[(i*grid_points_1d)+j] *= scalar;
-		}
-	}
+	map_1d_2d(grid, grid1_2d);
+
+	grid1_2d[1:grid_points_1d-2][1:grid_points_1d-2] *= scalar;
 }
 
 /**
@@ -208,14 +200,14 @@ void g_scale(double* grid, double scalar)
  */
 void g_scale_add(double* dest, double* src, double scalar)
 {
-	for (int i = 1; i < grid_points_1d-1; i++)
-	{
-		for (int j = 1; j < grid_points_1d-1; j++)
-		{
-			dest[(i*grid_points_1d)+j] += (scalar*src[(i*grid_points_1d)+j]);
-		}
-	}
+	map_1d_2d(dest, grid1_2d);
+	map_1d_2d(src, grid2_2d);
+	
+	size_t s = grid_points_1d-2;
+	grid1_2d[1:s][1:s] += scalar * grid2_2d[1:s][1:s];
 }
+
+
 
 /**
  * implements the the 5-point finite differences stencil (only inner grid points are modified due 
@@ -227,20 +219,17 @@ void g_scale_add(double* dest, double* src, double scalar)
 void g_product_operator(double* grid, double* result)
 {
 	double mesh_width = 1.0/((double)(grid_points_1d-1));
-
-	for (int i = 1; i < grid_points_1d-1; i++)
-	{
-		for (int j = 1; j < grid_points_1d-1; j++)
-		{
-			result[(i*grid_points_1d)+j] =  (
-							(4.0*grid[(i*grid_points_1d)+j]) 
-							- grid[((i+1)*grid_points_1d)+j]
-							- grid[((i-1)*grid_points_1d)+j]
-							- grid[(i*grid_points_1d)+j+1]
-							- grid[(i*grid_points_1d)+j-1]
-							) * (mesh_width*mesh_width);
-		}
-	}
+	
+	map_1d_2d(grid, grid1_2d);
+	map_1d_2d(result, grid2_2d);
+	
+	size_t s = grid_points_1d-2;
+#pragma vector always
+	grid2_2d[1:s][1:s] = (4.0*grid1_2d[1:s][1:s] 
+							- grid1_2d[0:s][1:s]
+							- grid1_2d[2:s][1:s]
+							- grid1_2d[1:s][0:s]
+							- grid1_2d[1:s][2:s])*mesh_width*mesh_width;
 }
 
 /**
@@ -255,7 +244,7 @@ void g_product_operator(double* grid, double* result)
  * @param cg_max_iterations max. number of CG iterations 
  * @param cg_eps the CG's epsilon
  */
-std::size_t solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps)
+void solve(double* grid, double* b, std::size_t cg_max_iterations, double cg_eps)
 {
 	std::cout << "Starting Conjugated Gradients" << std::endl;
 
@@ -280,6 +269,7 @@ std::size_t solve(double* grid, double* b, std::size_t cg_max_iterations, double
 	double a = 0.0;
 	double residuum = 0.0;
 	
+
 	g_product_operator(grid, d);
 	g_scale_add(b, d, -1.0);
 	g_copy(r, b);
@@ -374,6 +364,9 @@ int main(int argc, char* argv[])
 	// initialize the gird and rights hand side
 	double* grid = (double*)_mm_malloc(grid_points_1d*grid_points_1d*sizeof(double), 64);
 	double* b = (double*)_mm_malloc(grid_points_1d*grid_points_1d*sizeof(double), 64);
+	
+	grid1_2d = (double**)_mm_malloc(grid_points_1d*sizeof(double*), 64);
+	grid2_2d = (double**)_mm_malloc(grid_points_1d*sizeof(double*), 64);
 	init_grid(grid);
 	store_grid(grid, "initial_condition.gnuplot");
 	init_b(b);
@@ -387,9 +380,12 @@ int main(int argc, char* argv[])
 	
 	std::cout << std::endl << "Needed time: " << time << " s" << std::endl << std::endl;
 	
+	_mm_free(grid1_2d);
+	_mm_free(grid2_2d);
 	_mm_free(grid);
 	_mm_free(b);
 
 	return 0;
 }
+
 
